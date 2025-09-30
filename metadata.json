@@ -1,0 +1,7 @@
+{
+  "name": "Loud Noise Detector",
+  "description": "An application that monitors ambient noise levels using the microphone, detects loud sounds, and triggers a timed alert.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
