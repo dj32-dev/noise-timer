@@ -79,7 +79,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <main className="bg-gray-50 text-black h-screen overflow-hidden flex flex-col items-center justify-center p-4 font-sans">
+    <main className="bg-gray-50 text-black min-h-screen flex flex-col items-center justify-start sm:justify-center p-4 font-sans">
       <div className={`w-full max-w-md mx-auto flex flex-col items-center space-y-6 bg-white border rounded-2xl shadow-lg p-6 sm:p-8 transition-all duration-300 ${isAlerting ? 'border-red-500 shadow-red-500/50 animate-pulse' : 'border-gray-200'}`}>
         <div className="text-center">
             <h1 className="text-3xl sm:text-4xl font-bold text-black uppercase tracking-wider">Loud Noise Detector</h1>
