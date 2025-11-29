@@ -38,7 +38,7 @@ const App: React.FC = () => {
 
   const {
     status,
-    countdown,
+    elapsedTime,
     volume,
     isMonitoring,
     error,
@@ -84,13 +84,13 @@ const App: React.FC = () => {
         <div className="text-center">
             <h1 className="text-3xl sm:text-4xl font-bold text-black uppercase tracking-wider">Loud Noise Detector</h1>
             <p className="text-xs text-gray-400 mt-1 tracking-wider">by Daniel Jahn</p>
-            <p className="text-gray-600 mt-2">Monitors for loud sounds and alerts you after {peepDelay.toFixed(1)} seconds.</p>
+            <p className="text-gray-600 mt-2">Monitors for loud sounds and alerts when noise persists for {peepDelay.toFixed(1)} seconds.</p>
             {!hasInteracted && <p className="text-gray-500 text-sm mt-2">Allow microphone access to begin monitoring.</p>}
         </div>
         
         <NoiseVisualizer volume={volume} isLoud={status === 'Loud noise detected!'} isMonitoring={isMonitoring} />
 
-        <StatusCard status={status} countdown={countdown} error={error}/>
+        <StatusCard status={status} timer={elapsedTime} error={error}/>
         
         <div className="w-full flex flex-col items-center space-y-3">
             <label htmlFor="delay-input" className="text-gray-600 text-sm uppercase tracking-wider font-semibold">
@@ -174,7 +174,7 @@ const App: React.FC = () => {
       
       {/* Accessibility: Announce status changes to screen readers */}
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {error ? error : (countdown !== null ? `${status} ${countdown.toFixed(1)}` : status)}
+        {error ? error : (elapsedTime !== null ? `${status} ${elapsedTime.toFixed(1)}` : status)}
       </div>
     </main>
   );

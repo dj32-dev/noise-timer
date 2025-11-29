@@ -10,7 +10,7 @@ export const useNoiseDetector = ({ threshold, delaySeconds, onPeep }: UseNoiseDe
   const [volume, setVolume] = useState(0);
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [status, setStatus] = useState('Idle');
-  const [countdown, setCountdown] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -18,11 +18,9 @@ export const useNoiseDetector = ({ threshold, delaySeconds, onPeep }: UseNoiseDe
   const streamRef = useRef<MediaStream | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
-  // Fix: Replace `NodeJS.Timeout` with `number` for browser compatibility, as `setTimeout` and `setInterval` in the browser return a numeric ID.
-  const timerRefs = useRef<{ peepTimeout: number | null; countdownInterval: number | null }>({
-    peepTimeout: null,
-    countdownInterval: null,
-  });
+  
+  const intervalRef = useRef<number | null>(null);
+  const hasAlertedRef = useRef<boolean>(false);
 
   const stopMonitoring = useCallback(() => {
     if (animationFrameIdRef.current) {
@@ -38,20 +36,22 @@ export const useNoiseDetector = ({ threshold, delaySeconds, onPeep }: UseNoiseDe
       audioContextRef.current.close();
     }
     
-    if (timerRefs.current.peepTimeout) clearTimeout(timerRefs.current.peepTimeout);
-    if (timerRefs.current.countdownInterval) clearInterval(timerRefs.current.countdownInterval);
+    if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+    }
 
     audioContextRef.current = null;
     streamRef.current = null;
     analyserRef.current = null;
     sourceRef.current = null;
     animationFrameIdRef.current = null;
-    timerRefs.current = { peepTimeout: null, countdownInterval: null };
+    intervalRef.current = null;
+    hasAlertedRef.current = false;
 
     setIsMonitoring(false);
     setVolume(0);
     setStatus('Idle');
-    setCountdown(null);
+    setElapsedTime(null);
   }, []);
 
   const startMonitoring = useCallback(async () => {
@@ -90,6 +90,8 @@ export const useNoiseDetector = ({ threshold, delaySeconds, onPeep }: UseNoiseDe
       loop();
       setIsMonitoring(true);
       setStatus('Listening...');
+      setElapsedTime(0);
+      hasAlertedRef.current = false;
 
     } catch (err) {
       console.error('Error accessing microphone:', err);
@@ -109,47 +111,31 @@ export const useNoiseDetector = ({ threshold, delaySeconds, onPeep }: UseNoiseDe
   useEffect(() => {
     if (!isMonitoring) return;
 
-    // Condition to START or RESUME the timer:
-    // Loud noise is detected, and no timers are currently running.
-    if (volume > threshold && timerRefs.current.peepTimeout === null) {
-      // If countdown is null, it's a fresh start. Otherwise, it's a resume.
-      const startTime = countdown === null ? delaySeconds : countdown;
-      setCountdown(startTime);
+    if (volume > threshold) {
       setStatus('Loud noise detected!');
-
-      // Set the visual countdown interval
-      timerRefs.current.countdownInterval = setInterval(() => {
-        setCountdown(prev => {
-          if (prev === null || prev <= 0.1) {
-            if (timerRefs.current.countdownInterval) clearInterval(timerRefs.current.countdownInterval);
-            return 0;
-          }
-          return prev - 0.1;
-        });
-      }, 100);
-
-      // Set the final timeout for the peep sound
-      timerRefs.current.peepTimeout = setTimeout(() => {
-        onPeep();
-        // Reset state after the peep has played
-        setStatus('Listening...');
-        setCountdown(null);
-        if (timerRefs.current.countdownInterval) clearInterval(timerRefs.current.countdownInterval);
-        timerRefs.current = { peepTimeout: null, countdownInterval: null };
-      }, startTime * 1000);
-    }
-    // Condition to PAUSE the timer:
-    // Noise has subsided, and timers were running.
-    else if (volume <= threshold && timerRefs.current.peepTimeout !== null) {
-      // Clear the timers to pause them. The current countdown value is preserved in state.
-      if (timerRefs.current.peepTimeout) clearTimeout(timerRefs.current.peepTimeout);
-      if (timerRefs.current.countdownInterval) clearInterval(timerRefs.current.countdownInterval);
       
-      timerRefs.current = { peepTimeout: null, countdownInterval: null };
-      setStatus('Listening...'); // Indicates it's quiet now, waiting for noise to resume.
+      if (!intervalRef.current) {
+        intervalRef.current = window.setInterval(() => {
+          setElapsedTime(prev => (prev === null ? 0 : prev) + 0.1);
+        }, 100);
+      }
+    } else {
+      setStatus('Listening...');
+      
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     }
-  }, [volume, isMonitoring, threshold, delaySeconds, onPeep, countdown]);
+  }, [volume, threshold, isMonitoring]);
 
+  // Trigger alert when threshold is crossed
+  useEffect(() => {
+    if (elapsedTime !== null && elapsedTime >= delaySeconds && !hasAlertedRef.current) {
+        onPeep();
+        hasAlertedRef.current = true;
+    }
+  }, [elapsedTime, delaySeconds, onPeep]);
 
   useEffect(() => {
     return () => {
@@ -158,5 +144,5 @@ export const useNoiseDetector = ({ threshold, delaySeconds, onPeep }: UseNoiseDe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { status, countdown, volume, isMonitoring, error, toggleMonitoring };
+  return { status, elapsedTime, volume, isMonitoring, error, toggleMonitoring };
 };
